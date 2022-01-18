@@ -60,6 +60,30 @@ class RTCPPacket:
         self.header = bytes(header)
         self.body = bytes([0] * self.BODY_SIZE)
 
+    @classmethod
+    def from_bitstream(cls, data: bytes):
+        header = data[: cls.HEADER_SIZE]
+        body = data[cls.HEADER_SIZE :]
+
+        # Parse header fields
+        Version = (header[0] & 0xFF) >> 6
+        PayloadType = header[1] & 0xFF
+        length = (header[3] & 0xFF) + ((header[2] & 0xFF) << 8)
+        Ssrc = (
+            (header[7] & 0xFF)
+            + ((header[6] & 0xFF) << 8)
+            + ((header[5] & 0xFF) << 16)
+            + ((header[4] & 0xFF) << 24)
+        )
+
+        #  Parse body fields
+        values = bytearray(body)
+        fraction_lost = float.from_bytes(values, "big")
+        cum_lost = int.from_bytes(values, "big")
+        highest_rcv = int.from_bytes(values, "big")
+
+        return cls(fraction_lost, cum_lost, highest_rcv)
+
     def __len__(self):
         return self.BODY_SIZE + self.HEADER_SIZE
 
