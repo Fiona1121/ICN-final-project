@@ -62,19 +62,20 @@ class RTCPPacket:
 
     @classmethod
     def from_bitstream(cls, data: bytes):
-        header = data[: cls.HEADER_SIZE]
-        body = data[cls.HEADER_SIZE :]
+        # header = data[: cls.HEADER_SIZE]
 
         # Parse header fields
-        Version = (header[0] & 0xFF) >> 6
-        PayloadType = header[1] & 0xFF
-        length = (header[3] & 0xFF) + ((header[2] & 0xFF) << 8)
-        Ssrc = (
-            (header[7] & 0xFF)
-            + ((header[6] & 0xFF) << 8)
-            + ((header[5] & 0xFF) << 16)
-            + ((header[4] & 0xFF) << 24)
-        )
+        # Version = (header[0] & 0xFF) >> 6
+        # PayloadType = header[1] & 0xFF
+        # length = (header[3] & 0xFF) + ((header[2] & 0xFF) << 8)
+        # Ssrc = (
+        #     (header[7] & 0xFF)
+        #     + ((header[6] & 0xFF) << 8)
+        #     + ((header[5] & 0xFF) << 16)
+        #     + ((header[4] & 0xFF) << 24)
+        # )
+
+        body = data[cls.HEADER_SIZE :]
 
         #  Parse body fields
         values = bytearray(body)

@@ -25,6 +25,7 @@ class Server:
     # =================
     RTCP_RCV_PORT = 19001  # port where the client will receive the RTP packets
     RTCP_PERIOD = 400  # how often to check for control events
+    CONGESTION_PERIOD = 600
 
     class STATE:
         INIT = 0
@@ -43,7 +44,9 @@ class Server:
 
         self._rtcp_socket: Union[None, socket.socket] = None
         self._rtcp_receiver: Union[None, self.RtcpReceiver()] = None
-        self.congestion_level: int = None
+        self._image_translator: Union[None, self.ImageTranslator()] = None
+        self._congestion_controller: Union[None, self.CongestionController()] = None
+        self.congestion_level: int = 0
 
         self.send_delay = self.FRAME_PERIOD
         self.rtsp_host = rtsp_ip
@@ -91,6 +94,7 @@ class Server:
                 print("State set to PAUSED")
                 self._client_address = self._client_address[0], packet.rtp_dst_port
                 self._setup_rtp(packet.video_file_path)
+                self._setup_rtcp()
                 self._send_rtsp_response(packet.sequence_number)
                 break
 
@@ -99,7 +103,7 @@ class Server:
         self._wait_setup()
 
     def _start_rtp_send_thread(self):
-        self._rtp_send_thread = Thread(target=self._handle_video_send)
+        self._rtp_send_thread = Thread(target=self._handle_video_send, name="rtp")
         self._rtp_send_thread.setDaemon(
             True
         )  # this thread will be killed when the main thread ended
@@ -112,6 +116,20 @@ class Server:
         self._rtp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._start_rtp_send_thread()
 
+    def _setup_rtcp(self):
+        print("[RTCP] Setting up RTCP socket...")
+        self._rtcp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        address = self.rtsp_host, self.RTCP_RCV_PORT
+        self._rtcp_socket.bind(address)
+        print(f"[RTCP] UDP server is up and listening on {address[0]}:{address[1]}")
+
+        self._rtcp_receiver = self.RtcpReceiver(self, self.RTCP_PERIOD / 1000.0)
+        self._congestion_controller = self.CongestionController(
+            self, self.CONGESTION_PERIOD / 1000.0
+        )
+        self._image_translator = self.ImageTranslator(self, 80)
+        print("[RTCP] Finish setting up")
+
     def handle_rtsp_requests(self):
         print("Waiting for RTSP requests...")
         # main thread will be running here most of the time
@@ -123,12 +141,14 @@ class Server:
                     print("Current state is already PLAYING.")
                     continue
                 self.server_state = self.STATE.PLAYING
+                self._rtcp_receiver.start()
                 print("State set to PLAYING.")
             elif packet.request_type == RTSPPacket.PAUSE:
                 if self.server_state == self.STATE.PAUSED:
                     print("Current state is already PAUSED.")
                     continue
                 self.server_state = self.STATE.PAUSED
+                self._rtcp_receiver.stop()
                 print("State set to PAUSED.")
             elif packet.request_type == RTSPPacket.TEARDOWN:
                 print("Received TEARDOWN request, shutting down...")
@@ -136,6 +156,8 @@ class Server:
                 self._rtsp_connection.close()
                 self._video_stream.close()
                 self._rtp_socket.close()
+                self._rtcp_receiver.stop()
+                self._rtcp_socket.close()
                 self.server_state = self.STATE.TEARDOWN
                 # for simplicity's sake, caught on main_server
                 raise ConnectionError("teardown requested")
@@ -171,8 +193,15 @@ class Server:
             ):  # frames are 0-indexed
                 print("Reached end of file.")
                 self.server_state = self.STATE.FINISHED
+                self._rtcp_receiver.stop()
                 return
             frame = self._video_stream.get_next_frame()
+            if self.congestion_level > 0:
+                print("[RTCP] Congestion control: image compression")
+                self._image_translator.set_compression_quality(
+                    100 - self.congestion_level * 20
+                )
+                frame = self._image_translator.compress(frame)
             frame_number = self._video_stream.current_frame_number
             rtp_packet = RTPPacket(
                 payload_type=RTPPacket.TYPE.MJPEG,
@@ -199,13 +228,17 @@ class Server:
         def __init__(self, server, interval) -> None:
             # pass in the server instance
             self.server: Union[None, Server] = server
+            print("1/3")
 
             # set timer with interval for congestion control
             self.interval = interval
-            self.timer = Timer(interval, self._congestion_control())
-            self.timer.start()
+            self.prelevel = -1
+            print("2/3")
 
-            self.prelevel = None
+            self.timer = Timer(interval, self._congestion_control)
+            self.timer.start()
+            print("3/3")
+            print("[RTCP] Congestion controller instance is created")
 
         def _congestion_control(self):
             # adjust the send rate
@@ -215,7 +248,7 @@ class Server:
                     + self.server.congestion_level * self.server.FRAME_PERIOD * 0.1
                 )
                 self.prelevel = self.server.congestion_level
-                print("Send delay changed to: " + self.server.send_delay)
+                print(f"Send delay changed to: {self.server.send_delay}")
 
     # ===========================
     # Listener for RTCP packets sent from client
@@ -226,18 +259,17 @@ class Server:
         def __init__(self, server, interval) -> None:
             # pass in the server instance
             self.server: Union[None, Server] = server
+            print("1/4")
 
             # set timer with interval for receiving packets
             self.interval = interval
-            self.timer = Timer(interval, self._receive_rtcp_packet())
-
-            # allocate buffer for receiving RTCP packets
-            self.rtcp_buffer = bytes([0] * self.BUFFERSIZE)
+            print("2/2")
+            print("[RTCP] RTCP receiver instance is created")
 
         def _receive_rtcp_packet(self):
             try:
                 datagram = self.server._rtcp_socket.recvfrom(self.BUFFERSIZE)[0]
-                rtcp_pkt = RTPPacket(datagram)
+                rtcp_pkt = RTCPPacket(datagram)
                 print("[RTCP] " + rtcp_pkt)
                 fraction_lost = rtcp_pkt.fraction_lost
                 if fraction_lost >= 0 and fraction_lost <= 0.01:
@@ -254,6 +286,7 @@ class Server:
                 print("[RTCP] Error receiving data %s" % e)
 
         def start(self):
+            self.timer = Timer(self.interval, self._receive_rtcp_packet)
             self.timer.start()
 
         def stop(self):
@@ -266,16 +299,20 @@ class Server:
         def __init__(self, server, cp) -> None:
             # pass in the server instance
             self.server: Union[None, Server] = server
+            print("1/2")
 
             # assign video quality
             self.compression_quailty = cp
+            print("2/2")
+            print("[RTCP] Image translator instance is created")
 
-        def compress(self, image):
+        def compress(self, image_byte):
+            image = Image.open(BytesIO(image_byte))
             output = BytesIO()
             image.save(
                 output, format="JPEG", optimize=True, quality=self.compression_quality
             )
-            return Image.open(output)
+            return output.read()
 
         def set_compression_quality(self, cp):
             self.compression_quality = cp
