@@ -69,10 +69,10 @@ class RTPPacket:
         header[5]  = (self.timestamp >> 16) & 0xFF
         header[6]  = (self.timestamp >>  8) & 0xFF
         header[7]  = (self.timestamp >>  0) & 0xFF
-        header[8]  = (self.timestamp >> 24) & 0xFF
-        header[9]  = (self.timestamp >> 16) & 0xFF
-        header[10] = (self.timestamp >>  8) & 0xFF
-        header[11] = (self.timestamp >>  0) & 0xFF
+        header[8]  = (self.SSRC >> 24) & 0xFF
+        header[9]  = (self.SSRC >> 16) & 0xFF
+        header[10] = (self.SSRC >>  8) & 0xFF
+        header[11] = (self.SSRC >>  0) & 0xFF
 
 
         self.header = bytes(header)
@@ -91,8 +91,7 @@ class RTPPacket:
         sequence_number = header[2] << 8 | header[3]
         
         timestamp = header[4] << 24 | header[5] << 16 | header[6] << 8 | header[7] << 0
-        # for i, b in enumerate(header[4:8]):
-        #     timestamp = timestamp | b << (3 - i) * 8
+
 
         return cls(
             payload_type,
@@ -103,5 +102,13 @@ class RTPPacket:
 
     def get_packet(self) -> bytes:
         return bytes((*self.header, *self.payload))
+    
+    def print_header(self):
+        # print header without SSRC
+        for i, by in enumerate(self.header[:8]):
+            s = ' '.join(f"{by:08b}")
+            # break line after the third and seventh bytes
+            print(s, end=' ' if i not in (3, 7) else '\n')
 
     
+

@@ -1,7 +1,7 @@
 from pickletools import optimize
 import socket
 from io import BytesIO
-from PIL import Image
+##from PIL import Image
 from time import sleep
 from threading import Thread, Timer
 from typing import Union, Tuple
