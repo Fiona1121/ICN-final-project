@@ -154,9 +154,9 @@ class ClientWindow(QMainWindow):
         information_layout.addWidget(self.high_sequence_number_label_num)
         
         layout = QHBoxLayout()
-        layout.addLayout(control_layout, 1)
-        layout.addWidget(self.video_player, 8)
-        layout.addLayout(information_layout, 6)
+        layout.addLayout(control_layout, 2)
+        layout.addWidget(self.video_player, 7)
+        layout.addLayout(information_layout, 7.5)
         # layout.addWidget(self.error_label)
 
         central_widget.setLayout(layout)
