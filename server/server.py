@@ -8,6 +8,11 @@ from time import sleep
 from threading import Thread
 from typing import Union, Tuple
 
+import cv2
+import numpy as np
+import math
+import struct
+
 from utils.video_stream import VideoStream
 from utils.rtsp_packet import RTSPPacket
 from utils.rtp_packet import RTPPacket
@@ -186,17 +191,25 @@ class Server:
             self._send_rtsp_response(packet.sequence_number)
 
     def _send_rtp_packet(self, packet: bytes):
+       
         to_send = packet[:]
-        while to_send:
-            try:
-                self._rtp_socket.sendto(
-                    to_send[: self.DEFAULT_CHUNK_SIZE], self._client_address
-                )
+        size = len(to_send)
+        count = math.ceil(size/(VideoStream.MAX_IMAGE_DGRAM))
+        array_pos_start = 0
+
+        while count:
+                
+            array_pos_end = min(size, array_pos_start + VideoStream.MAX_IMAGE_DGRAM)
+            try: 
+                self._rtp_socket.sendto(struct.pack("B", count) +
+                    to_send[array_pos_start:array_pos_end], 
+                    self._client_address
+                    )
+                array_pos_start = array_pos_end
+                count -= 1
             except socket.error as e:
                 print(f"failed to send rtp packet: {e}")
                 return
-            # trim bytes sent
-            to_send = to_send[self.DEFAULT_CHUNK_SIZE :]
 
     def _handle_video_send(self):
         print(f"Sending video to {self._client_address[0]}:{self._client_address[1]}")
@@ -216,7 +229,7 @@ class Server:
             if self.congestion_level > 0:
                 print(f"[RTCP] Congestion control: {self.congestion_level}")
                 self._image_translator.set_compression_quality(
-                    100 - self.congestion_level * 20
+                    int(100 - self.congestion_level * 20)
                 )
                 frame = self._image_translator.compress(frame)
             frame_number = self._video_stream.current_frame_number
@@ -228,10 +241,12 @@ class Server:
             )
             print(f"Sending packet #{frame_number}")
             print("Packet header:")
-            rtp_packet.print_header()
+            #rtp_packet.print_header()
             packet = rtp_packet.get_packet()
             self._send_rtp_packet(packet)
             sleep(self.send_delay / 1000.0)
+
+
 
     def _send_rtsp_response(self, sequence_number: int):
         response = RTSPPacket.build_response(sequence_number, self.sessionID)
@@ -292,9 +307,9 @@ class Server:
                 try:
                     datagram = self.server._rtcp_socket.recvfrom(self.BUFFERSIZE)[0]
                     rtcp_pkt = RTCPPacket.from_bitstream(datagram)
-                    print(
-                        f"[RTCP] Receive pkt: {rtcp_pkt.fraction_lost, rtcp_pkt.cum_lost, rtcp_pkt.highest_rcv}"
-                    )
+                    # print(
+                    #     f"[RTCP] Receive pkt: {rtcp_pkt.fraction_lost, rtcp_pkt.cum_lost, rtcp_pkt.highest_rcv}"
+                    # )
                     fraction_lost = rtcp_pkt.fraction_lost
                     if fraction_lost >= 0 and fraction_lost <= 0.01:
                         self.server.congestion_level = 0
@@ -323,14 +338,16 @@ class Server:
             print("[RTCP] Image translator instance is created")
 
         def compress(self, image_byte):
-            image = Image.open(BytesIO(image_byte))
+
+            img = cv2.imdecode(np.frombuffer(image_byte, dtype=np.uint8), 1)
+            image = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             image.save(
                 "output.jpeg",
-                format="JPEG",
-                optimize=True,
-                quality=self.compression_quality,
+                format = "JPEG",
+                optiimize=True,
+                quality = self.compression_quality
             )
-            with open("output.jpeg", "rb") as image:
+            with open("output.jpeg","rb") as image:
                 f = image.read()
             os.remove("output.jpeg")
             return f

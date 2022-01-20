@@ -6,6 +6,10 @@ from PIL import Image
 from io import BytesIO
 from utils.rtcp_packet import RTCPPacket
 
+import struct
+import cv2
+import numpy as np
+
 from utils.rtsp_packet import RTSPPacket
 from utils.rtp_packet import RTPPacket
 from utils.video_stream import VideoStream
@@ -83,22 +87,30 @@ class Client:
     @staticmethod
     def _get_frame_from_packet(packet: RTPPacket) -> Image.Image:
         # the payload is already the jpeg
+
         raw = packet.payload
-        frame = Image.open(BytesIO(raw))
+        img = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), 1)
+        frame = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         return frame
+        
 
     def _recv_rtp_packet(self, size=DEFAULT_CHUNK_SIZE) -> RTPPacket:
-        recv = bytes()
-        # print("Waiting RTP packet...")
+        
+        recv = b''
         while True:
-            try:
-                recv += self._rtp_socket.recv(size)
-                if recv.endswith(VideoStream.JPEG_EOF):
-                    break
+            try: 
+                seg, addr = self._rtp_socket.recvfrom(VideoStream.MAX_DGRAM)
+                if struct.unpack("B", seg[0:1])[0] > 1:
+                    recv += seg[1:]
+                else:
+                    recv += seg[1:]
+
+                    return RTPPacket.from_packet(recv)
+
             except socket.timeout:
                 continue
-        # print(f"Received from server: {repr(recv)}")
-        return RTPPacket.from_packet(recv)
+
+
 
     def _start_rtp_receive_thread(self):
         self._rtp_receive_thread = Thread(
