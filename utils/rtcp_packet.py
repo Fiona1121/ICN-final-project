@@ -23,6 +23,9 @@ block  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 """
 
 
+from struct import pack, unpack
+
+
 class InvalidRequest(Exception):
     pass
 
@@ -58,31 +61,12 @@ class RTCPPacket:
         header[7] = self.SSRC & 0xFF
 
         self.header = bytes(header)
-        self.body = bytes([0] * self.BODY_SIZE)
+        self.body = pack("fII", fraction_lost, cum_lost, highest_rcv)
 
     @classmethod
     def from_bitstream(cls, data: bytes):
-        # header = data[: cls.HEADER_SIZE]
-
-        # Parse header fields
-        # Version = (header[0] & 0xFF) >> 6
-        # PayloadType = header[1] & 0xFF
-        # length = (header[3] & 0xFF) + ((header[2] & 0xFF) << 8)
-        # Ssrc = (
-        #     (header[7] & 0xFF)
-        #     + ((header[6] & 0xFF) << 8)
-        #     + ((header[5] & 0xFF) << 16)
-        #     + ((header[4] & 0xFF) << 24)
-        # )
-
         body = data[cls.HEADER_SIZE :]
-
-        #  Parse body fields
-        values = bytearray(body)
-        fraction_lost = float.from_bytes(values, "big")
-        cum_lost = int.from_bytes(values, "big")
-        highest_rcv = int.from_bytes(values, "big")
-
+        fraction_lost, cum_lost, highest_rcv = unpack("fII", body)
         return cls(fraction_lost, cum_lost, highest_rcv)
 
     def __len__(self):
