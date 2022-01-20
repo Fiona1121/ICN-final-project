@@ -77,7 +77,7 @@ class ClientWindow(QMainWindow):
             }
 
             QPushButton:pressed {
-                background-color: #FFA823;
+                background-color: grey;
                 color: #000000;
                 font: bold 14px;
             }
