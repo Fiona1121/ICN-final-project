@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-
+import os
 
 
 class VideoStream:
@@ -18,8 +18,12 @@ class VideoStream:
 
 
     def __init__(self, file_path: str):
-       
-        self._stream = cv2.VideoCapture(0)
+
+        if os.path.isfile(file_path):
+            self._stream = cv2.VideoCapture(file_path) 
+        else:    
+            self._stream = cv2.VideoCapture(0)
+
         
         # frame number is zero-indexed
         # after first frame is sent, this is set to zero
