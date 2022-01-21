@@ -13,39 +13,39 @@ class ClientWindow(QMainWindow):
     _update_image_signal = pyqtSignal()
 
     def __init__(
-            self,
-            file_name: str,
-            host_address: str,
-            host_port: int,
-            rtp_port: int,
-            parent=None):
+        self,
+        file_name: str,
+        host_address: str,
+        host_port: int,
+        rtp_port: int,
+        parent=None,
+    ):
         super(ClientWindow, self).__init__(parent)
-        
+
         self.counter = 0
-        
+
         self.video_player = QLabel()
         self.setup_button = QPushButton()
         self.play_button = QPushButton()
         self.pause_button = QPushButton()
         self.tear_button = QPushButton()
         self.error_label = QLabel()
-        
+
         self.data_rate_label = QLabel()  # Rate of video data received in bytes/s
-        self.data_rate_label_num = QLabel()
         self.total_bytes_label = QLabel()  # Total number of bytes received in a session
-        self.total_bytes_label_num = QLabel()
-        self.start_time_label = QLabel()  # Time in ms when start is pressed
-        self.start_time_label_num = QLabel()
-        self.total_play_time_label = QLabel()  # Time in ms of video playing since beginning
-        self.total_play_time_label_num = QLabel()
-        self.fraction_lost_label = QLabel()  # Fraction of RTP data packets from sender lost since the prev packet was sent
-        self.fraction_lost_label_num = QLabel()
+        self.total_play_time_label = (
+            QLabel()
+        )  # Time in ms of video playing since beginning
+        self.fraction_lost_label = (
+            QLabel()
+        )  # Fraction of RTP data packets from sender lost since the prev packet was sent
         self.cumulative_lost_label = QLabel()  # Number of packets lost
-        self.cumulative_lost_label_num = QLabel()
-        self.expected_sequence_number_label = QLabel()  # Expected sequence num in the session
-        self.expected_sequence_number_label_num = QLabel()
-        self.high_sequence_number_label = QLabel()  # Highest sequence num received in session
-        self.high_sequence_number_label_num = QLabel()
+        self.expected_sequence_number_label = (
+            QLabel()
+        )  # Expected sequence num in the session
+        self.high_sequence_number_label = (
+            QLabel()
+        )  # Highest sequence num received in session
 
         self._media_client = Client(file_name, host_address, host_port, rtp_port)
         self._update_image_signal.connect(self.update_image)
@@ -55,25 +55,24 @@ class ClientWindow(QMainWindow):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("Client")
-        self.setFixedWidth(900)
+        self.setWindowTitle("Real Time Streaming - Client")
+        self.setFixedWidth(800)
         self.setFixedHeight(400)
-        
+
         button_style = """
             QPushButton {
-                background-color: white;
                 border-style: solid;
                 border-width:1px;
-                border-radius:30px;
+                border-radius:5px;
                 border-color: black;
-                max-width:60px;
-                max-height:60px;
-                min-width:60px;
-                min-height:60px;
+                max-width:75px;
+                max-height:90px;
+                min-width:75px;
+                min-height:90px;
             }
 
             QPushButton:hover {
-                border-width:3px;
+                border-width:2px;
             }
 
             QPushButton:pressed {
@@ -82,50 +81,54 @@ class ClientWindow(QMainWindow):
                 font: bold 14px;
             }
         """
-        
+
         self.setup_button.setEnabled(True)
-        self.setup_button.setText('Setup')
+        self.setup_button.setText("Setup")
         self.setup_button.setStyleSheet(button_style)
         self.setup_button.clicked.connect(self.handle_setup)
 
         self.play_button.setEnabled(False)
-        self.play_button.setText('Play')
+        self.play_button.setText("Play")
         self.play_button.setStyleSheet(button_style)
         self.play_button.clicked.connect(self.handle_play)
 
         self.pause_button.setEnabled(False)
-        self.pause_button.setText('Pause')
+        self.pause_button.setText("Pause")
         self.pause_button.setStyleSheet(button_style)
         self.pause_button.clicked.connect(self.handle_pause)
 
         self.tear_button.setEnabled(False)
-        self.tear_button.setText('Teardown')
+        self.tear_button.setText("Teardown")
         self.tear_button.setStyleSheet(button_style)
         self.tear_button.clicked.connect(self.handle_teardown)
 
-        self.error_label.setSizePolicy(
-            QSizePolicy.Preferred,
-            QSizePolicy.Maximum)
+        self.error_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
 
-        self.data_rate_label.setText('Data rate (bytes/s):')
-        self.data_rate_label_num.setText(str(self._media_client.stat_data_rate))
-        self.total_bytes_label.setText('Total number of bytes received:')
-        self.total_bytes_label_num.setText(str(self._media_client.stat_total_bytes))
-        self.start_time_label.setText('Time in ms when start is pressed:')
-        self.start_time_label_num.setText(str(self._media_client.stat_start_time))
-        self.total_play_time_label.setText('Time in ms of video playing:')
-        self.total_play_time_label_num.setText(str(self._media_client.stat_total_play_time))
-        self.fraction_lost_label.setText('Fraction lost:')
-        self.fraction_lost_label_num.setText(str(self._media_client.stat_fraction_lost))
-        self.cumulative_lost_label.setText('Number of packets lost:')
-        self.cumulative_lost_label_num.setText(str(self._media_client.stat_cumulative_lost))
-        self.expected_sequence_number_label.setText('Expected sequence num :')
-        self.expected_sequence_number_label_num.setText(str(self._media_client.stat_expected_sequence_number))
-        self.high_sequence_number_label.setText('Highest sequence num received:')
-        self.high_sequence_number_label_num.setText(str(self._media_client.stat_high_sequence_number))
-        
+        self.data_rate_label.setText(
+            f"Data rate: {str(self._media_client.stat_data_rate)} bytes/s"
+        )
+        self.total_bytes_label.setText(
+            f"Total received: {str(self._media_client.stat_total_bytes)} bytes"
+        )
+        self.total_play_time_label.setText(
+            f"Total time playing: {str(self._media_client.stat_total_play_time*1000)} s"
+        )
+
+        self.fraction_lost_label.setText(
+            f"Fraction lost: {str(self._media_client.stat_fraction_lost)}"
+        )
+        self.cumulative_lost_label.setText(
+            f"Number of packets lost: {str(self._media_client.stat_cumulative_lost)}"
+        )
+        self.expected_sequence_number_label.setText(
+            f"Expected sequence num: {str(self._media_client.stat_expected_sequence_number)}"
+        )
+        self.high_sequence_number_label.setText(
+            f"Highest sequence num received: {str(self._media_client.stat_high_sequence_number)}"
+        )
+
         central_widget = QWidget(self)
-        # central_widget.geomertry(500, 200)
+        # central_widget.resize(600, 200)
         self.setCentralWidget(central_widget)
 
         control_layout = QVBoxLayout()
@@ -137,42 +140,44 @@ class ClientWindow(QMainWindow):
 
         information_layout = QVBoxLayout()
         information_layout.addWidget(self.data_rate_label)
-        information_layout.addWidget(self.data_rate_label_num)
         information_layout.addWidget(self.total_bytes_label)
-        information_layout.addWidget(self.total_bytes_label_num)
-        information_layout.addWidget(self.start_time_label)
-        information_layout.addWidget(self.start_time_label_num)
         information_layout.addWidget(self.total_play_time_label)
-        information_layout.addWidget(self.total_play_time_label_num)
         information_layout.addWidget(self.fraction_lost_label)
-        information_layout.addWidget(self.fraction_lost_label_num)
         information_layout.addWidget(self.cumulative_lost_label)
-        information_layout.addWidget(self.cumulative_lost_label_num)
         information_layout.addWidget(self.expected_sequence_number_label)
-        information_layout.addWidget(self.expected_sequence_number_label_num)
         information_layout.addWidget(self.high_sequence_number_label)
-        information_layout.addWidget(self.high_sequence_number_label_num)
-        
+
         layout = QHBoxLayout()
         layout.addLayout(control_layout, 2)
-        layout.addWidget(self.video_player, 7)
-        layout.addLayout(information_layout, 7.5)
-        # layout.addWidget(self.error_label)
+        layout.addWidget(self.video_player, 8)
+        layout.addLayout(information_layout, 5)
 
         central_widget.setLayout(layout)
 
     def update_information(self):
         self.counter %= 30
         if self.counter == 0:
-            self.data_rate_label_num.setText(str(round(self._media_client.stat_data_rate, 5)))
-            self.data_rate_label_num.setText(str(round(self._media_client.stat_data_rate)))
-            self.total_bytes_label_num.setText(str(round(self._media_client.stat_total_bytes)))
-            self.start_time_label_num.setText(str(round(self._media_client.stat_start_time)))
-            self.total_play_time_label_num.setText(str(round(self._media_client.stat_total_play_time)))
-            self.fraction_lost_label_num.setText(str(round(self._media_client.stat_fraction_lost)))
-            self.cumulative_lost_label_num.setText(str(round(self._media_client.stat_cumulative_lost)))
-            self.expected_sequence_number_label_num.setText(str(round(self._media_client.stat_expected_sequence_number)))
-            self.high_sequence_number_label_num.setText(str(round(self._media_client.stat_high_sequence_number)))
+            self.data_rate_label.setText(
+                f"Data rate: {str(round(self._media_client.stat_data_rate, 2))}  bytes/s"
+            )
+            self.total_bytes_label.setText(
+                f"Total received: {str(round(self._media_client.stat_total_bytes))} bytes"
+            )
+            self.total_play_time_label.setText(
+                f"Total time playing: {str(round(self._media_client.stat_total_play_time*1000))} s"
+            )
+            self.fraction_lost_label.setText(
+                f"Fraction lost: {str(round(self._media_client.stat_fraction_lost,2))}"
+            )
+            self.cumulative_lost_label.setText(
+                f"Number of packets lost: {str(round(self._media_client.stat_cumulative_lost))}"
+            )
+            self.expected_sequence_number_label.setText(
+                f"Expected sequence num: {str(round(self._media_client.stat_expected_sequence_number))}"
+            )
+            self.high_sequence_number_label.setText(
+                f"Highest sequence num received: {str(round(self._media_client.stat_high_sequence_number))}"
+            )
         self.counter += 1
 
     def update_image(self):
@@ -190,7 +195,7 @@ class ClientWindow(QMainWindow):
         self.setup_button.setEnabled(False)
         self.play_button.setEnabled(True)
         self.tear_button.setEnabled(True)
-        self._update_image_timer.start(1000//VideoStream.DEFAULT_FPS)
+        self._update_image_timer.start(1000 // VideoStream.DEFAULT_FPS)
 
     def handle_play(self):
         self._media_client.send_play_request()

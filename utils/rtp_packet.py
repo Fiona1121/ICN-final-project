@@ -102,6 +102,8 @@ class RTPPacket:
 
     def get_packet(self) -> bytes:
         return bytes((*self.header, *self.payload))
+
+        
     
     def print_header(self):
         # print header without SSRC

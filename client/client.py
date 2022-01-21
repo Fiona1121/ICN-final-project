@@ -92,13 +92,12 @@ class Client:
         img = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), 1)
         frame = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         return frame
-        
 
     def _recv_rtp_packet(self, size=DEFAULT_CHUNK_SIZE) -> RTPPacket:
-        
-        recv = b''
+
+        recv = b""
         while True:
-            try: 
+            try:
                 seg, addr = self._rtp_socket.recvfrom(VideoStream.MAX_DGRAM)
                 if struct.unpack("B", seg[0:1])[0] > 1:
                     recv += seg[1:]
@@ -109,8 +108,6 @@ class Client:
 
             except socket.timeout:
                 continue
-
-
 
     def _start_rtp_receive_thread(self):
         self._rtp_receive_thread = Thread(
@@ -148,21 +145,21 @@ class Client:
                 self.stat_high_sequence_number = packet.sequence_number
             if packet.sequence_number != self.stat_expected_sequence_number:
                 self.stat_cumulative_lost += 1
+                self.stat_expected_sequence_number = self.stat_high_sequence_number
             self.stat_expected_sequence_number += 1
 
             self.stat_data_rate = 0.0
             if self.stat_total_play_time != 0:
-                self.stat_data_rate = self.stat_total_bytes / (
-                    self.stat_total_play_time / 1000
+                self.stat_data_rate = (
+                    self.stat_total_bytes / self.stat_total_play_time * 1000
                 )
             self.stat_fraction_lost = 0.0
             if self.stat_high_sequence_number != 0:
                 self.stat_fraction_lost = float(
                     self.stat_cumulative_lost / self.stat_high_sequence_number
                 )
-            self.stat_total_bytes += len(packet.payload)
 
-            # todo: update statistics label
+            self.stat_total_bytes += len(packet.payload)
 
     def _setup_rtcp_sender(self):
         print("[RTCP] Setting up RTCP socket...")
@@ -216,6 +213,7 @@ class Client:
         response = self._send_request(RTSPPacket.PLAY)
         self._start_rtcp_send_thread()
         self.is_receiving_rtp = True
+        self.stat_start_time = round(time() * 1000)
         return response
 
     def send_pause_request(self) -> RTSPPacket:
