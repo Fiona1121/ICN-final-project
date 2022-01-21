@@ -20,10 +20,12 @@ class ClientWindow(QMainWindow):
         host_port: int,
         rtp_port: int,
         parent=None,
+        add_obj_detect: bool = True,
     ):
         super(ClientWindow, self).__init__(parent)
 
         self.counter = 0
+        self.add_obj_detect = add_obj_detect
 
         self.video_player = QLabel()
         self.setup_button = QPushButton()
@@ -57,7 +59,7 @@ class ClientWindow(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle("Real Time Streaming - Client")
-        self.setFixedWidth(800)
+        self.setFixedWidth(1000)
         self.setFixedHeight(400)
 
         button_style = """
@@ -129,7 +131,7 @@ class ClientWindow(QMainWindow):
         )
 
         central_widget = QWidget(self)
-        # central_widget.resize(600, 200)
+        # central_widget.resize(600, 400)
         self.setCentralWidget(central_widget)
 
         control_layout = QVBoxLayout()
@@ -186,10 +188,10 @@ class ClientWindow(QMainWindow):
         if not self._media_client.is_receiving_rtp:
             return
         frame = self._media_client.get_next_frame()
-        if not isinstance(frame, type(None)):
+        if (not isinstance(frame, type(None))) and self.add_obj_detect:
             frame = (inference(frame[0]), frame[1])
         if frame is not None:
-            pix = QPixmap.fromImage(ImageQt(frame[0]).copy())
+            pix = QPixmap.fromImage(ImageQt(frame[0]).copy()).scaledToWidth(500)
             self.video_player.setPixmap(pix)
 
     def handle_setup(self):

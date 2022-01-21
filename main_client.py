@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QApplication
+import os
 
 from client.client_gui import ClientWindow
 
@@ -23,7 +24,12 @@ if __name__ == "__main__":
         raise ValueError("failed to connect server")
 
     app = QApplication(sys.argv)
-    client = ClientWindow(file_name, host_address, host_port, rtp_port)
+    if os.path.isfile(file_name):
+        client = ClientWindow(file_name, host_address, host_port, rtp_port)
+    else:
+        client = ClientWindow(
+            file_name, host_address, host_port, rtp_port, add_obj_detect=False
+        )
     client.resize(400, 300)
     client.show()
     sys.exit(app.exec_())
