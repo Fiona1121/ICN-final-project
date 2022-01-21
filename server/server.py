@@ -1,5 +1,6 @@
 import os
 from pickletools import optimize
+from random import random
 import socket
 from io import BytesIO
 
@@ -41,7 +42,9 @@ class Server:
         FINISHED = 3
         TEARDOWN = 4
 
-    def __init__(self, rtsp_ip: str, rtsp_port: int, sessionID: str):
+    def __init__(
+        self, rtsp_ip: str, rtsp_port: int, sessionID: str, lost_probability: float = 0
+    ):
         self._video_stream: Union[None, VideoStream] = None
         self._rtp_send_thread: Union[None, Thread] = None
         self._rtsp_connection: Union[None, socket.socket] = None
@@ -57,6 +60,7 @@ class Server:
         self._congestion_controller: Union[None, self.CongestionController()] = None
         self.congestion_level: int = 0
 
+        self.lost_probability = lost_probability
         self.send_delay = self.FRAME_PERIOD
         self.rtsp_host = rtsp_ip
         self.rtsp_port = rtsp_port
@@ -191,20 +195,20 @@ class Server:
             self._send_rtsp_response(packet.sequence_number)
 
     def _send_rtp_packet(self, packet: bytes):
-       
+
         to_send = packet[:]
         size = len(to_send)
-        count = math.ceil(size/(VideoStream.MAX_IMAGE_DGRAM))
+        count = math.ceil(size / (VideoStream.MAX_IMAGE_DGRAM))
         array_pos_start = 0
 
         while count:
-                
+
             array_pos_end = min(size, array_pos_start + VideoStream.MAX_IMAGE_DGRAM)
-            try: 
-                self._rtp_socket.sendto(struct.pack("B", count) +
-                    to_send[array_pos_start:array_pos_end], 
-                    self._client_address
-                    )
+            try:
+                self._rtp_socket.sendto(
+                    struct.pack("B", count) + to_send[array_pos_start:array_pos_end],
+                    self._client_address,
+                )
                 array_pos_start = array_pos_end
                 count -= 1
             except socket.error as e:
@@ -226,6 +230,10 @@ class Server:
                 self.server_state = self.STATE.FINISHED
                 return
             frame = self._video_stream.get_next_frame()
+            if random() < self.lost_probability:
+                print(f"[RTP] Packet lost")
+                sleep(self.send_delay / 1000.0)
+                continue
             if self.congestion_level > 0:
                 print(f"[RTCP] Congestion control: {self.congestion_level}")
                 self._image_translator.set_compression_quality(
@@ -241,12 +249,10 @@ class Server:
             )
             print(f"Sending packet #{frame_number}")
             print("Packet header:")
-            #rtp_packet.print_header()
+            # rtp_packet.print_header()
             packet = rtp_packet.get_packet()
             self._send_rtp_packet(packet)
             sleep(self.send_delay / 1000.0)
-
-
 
     def _send_rtsp_response(self, sequence_number: int):
         response = RTSPPacket.build_response(sequence_number, self.sessionID)
@@ -343,11 +349,11 @@ class Server:
             image = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             image.save(
                 "output.jpeg",
-                format = "JPEG",
+                format="JPEG",
                 optiimize=True,
-                quality = self.compression_quality
+                quality=self.compression_quality,
             )
-            with open("output.jpeg","rb") as image:
+            with open("output.jpeg", "rb") as image:
                 f = image.read()
             os.remove("output.jpeg")
             return f
