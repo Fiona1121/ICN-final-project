@@ -7,7 +7,7 @@ from PIL.ImageQt import ImageQt
 
 from client.client import Client
 from utils.video_stream import VideoStream
-
+from utils.inference import inference
 
 class ClientWindow(QMainWindow):
     _update_image_signal = pyqtSignal()
@@ -180,6 +180,7 @@ class ClientWindow(QMainWindow):
         if not self._media_client.is_receiving_rtp:
             return
         frame = self._media_client.get_next_frame()
+        frame = inference(frame)
         if frame is not None:
             pix = QPixmap.fromImage(ImageQt(frame[0]).copy())
             self.video_player.setPixmap(pix)
